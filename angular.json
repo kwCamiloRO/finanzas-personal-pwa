@@ -35,13 +35,21 @@
             ],
             "scripts": [],
             "serviceWorker": "ngsw-config.json",
-            "baseHref": "/finanzas-personales/"
+            "baseHref": "/finanzas-personal-pwa/"
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "2mb", "maximumError": "5mb" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kb", "maximumError": "16kb" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "2mb",
+                  "maximumError": "5mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kb",
+                  "maximumError": "16kb"
+                }
               ],
               "outputHashing": "all",
               "fileReplacements": [
