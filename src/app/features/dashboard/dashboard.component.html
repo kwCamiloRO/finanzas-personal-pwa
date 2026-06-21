@@ -1,0 +1,238 @@
+@if (!fa.hayCicloActivo()) {
+  <section class="page">
+    <p class="muted">Cargando...</p>
+  </section>
+} @else {
+  <section class="page dashboard">
+
+    @if (fa.modo() === 'PLANIFICACION' && !fa.fechaPagoAlcanzada()) {
+      <div class="banner banner-info">
+        <mat-icon>insights</mat-icon>
+        <div>
+          <strong>Estás planificando tu próximo pago</strong>
+          <p>Faltan {{ fa.diasHastaProximoPago() }} días. Asegúrate de tener completo el panorama.</p>
+        </div>
+      </div>
+    }
+
+    @if (fa.pagoEsperadoPendiente()) {
+      <div class="banner banner-warn">
+        <mat-icon>schedule</mat-icon>
+        <div>
+          <strong>Tu pago ya debía llegar</strong>
+          <p>Tu ingreso esperado aún no está marcado como "Recibido". Confírmalo o ajusta el estado.</p>
+          <a mat-flat-button color="primary" routerLink="/incomes">Revisar ingresos</a>
+        </div>
+      </div>
+    }
+
+    <!-- SECCIÓN 1: Estado general -->
+    <mat-card class="card-hoy">
+      <mat-card-content>
+        <div class="row-space">
+          <div class="muted small">Hoy estás aquí</div>
+          <span class="chip modo-chip">{{ modoLabel() }}</span>
+        </div>
+        <div class="hoy-grid">
+          <div>
+            <div class="muted small">Próximo pago</div>
+            <strong class="num">{{ fa.fechaProximoPago() | fechaCorta }}</strong>
+          </div>
+          <div>
+            <div class="muted small">Faltan</div>
+            <strong class="num">{{ fa.diasHastaProximoPago() }} días</strong>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- SECCIÓN 2: DINERO LIBRE PROYECTADO (hero) -->
+    <div class="hero-card variant-{{ saludVariant() }}">
+      <div class="hero-label">
+        <mat-icon>insights</mat-icon>
+        DINERO LIBRE PROYECTADO
+      </div>
+      <div class="hero-value">{{ fa.dineroLibreProyectado() | cop }}</div>
+      <div class="hero-sub">Si todo ocurre según lo planeado</div>
+
+      <mat-divider class="hero-div"></mat-divider>
+
+      <div class="hero-breakdown">
+        <div>
+          <div class="muted small">Ingresos proyectados</div>
+          <div>{{ fa.ingresosTotalesCiclo() | cop }}</div>
+        </div>
+        <div>
+          <div class="muted small">Obligaciones</div>
+          <div>−{{ fa.obligacionesProyectadas() | cop }}</div>
+        </div>
+        <div>
+          <div class="muted small">Gastos</div>
+          <div>−{{ fa.gastosCiclo() | cop }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 4 + 5: Salud + Gasto máximo diario -->
+    <div class="grid-2">
+      <div class="metric salud-{{ saludVariant() }}">
+        <div class="muted small">Salud del ciclo</div>
+        <div class="metric-big">{{ saludLabel() }}</div>
+        <div class="muted small">{{ (fa.porcentajeLibreRestante() * 100).toFixed(0) }}% libre</div>
+      </div>
+
+      <div class="metric primary">
+        <div class="muted small" style="color: rgba(255,255,255,0.85);">Puedes gastar al día</div>
+        <div class="metric-big">{{ fa.gastoMaximoDiario() | cop }}</div>
+        <div class="small" style="color: rgba(255,255,255,0.75);">
+          {{ fa.diasHastaProximoPago() }} días restantes
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 3: DINERO DISPONIBLE REAL (solo modo EJECUCIÓN) -->
+    @if (fa.modo() === 'EJECUCION') {
+      <div class="hero-card variant-secondary">
+        <div class="hero-label">
+          <mat-icon>account_balance_wallet</mat-icon>
+          DINERO DISPONIBLE HOY
+        </div>
+        <div class="hero-value">{{ fa.dineroDisponibleReal() | cop }}</div>
+        <div class="hero-sub">Recibido − pagos − gastos</div>
+
+        <mat-divider class="hero-div"></mat-divider>
+        <div class="hero-breakdown">
+          <div>
+            <div class="muted small">Recibido</div>
+            <div>{{ fa.ingresosRecibidos() | cop }}</div>
+          </div>
+          <div>
+            <div class="muted small">Pagado</div>
+            <div>−{{ fa.pagosCicloRealizados() | cop }}</div>
+          </div>
+          <div>
+            <div class="muted small">Gastado</div>
+            <div>−{{ fa.gastosCiclo() | cop }}</div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Siguiente ciclo / CTA cerca del fin -->
+    @if (fa.siguienteCiclo()) {
+      <mat-card class="card-next">
+        <mat-card-content>
+          <div class="row-space">
+            <div>
+              <div class="muted small">Próximo ciclo registrado</div>
+              <strong>{{ fa.siguienteCiclo()!.fechaPago | fechaCorta }}</strong>
+            </div>
+            <a mat-stroked-button [routerLink]="['/cycles', fa.siguienteCiclo()!.id, 'edit']">Ver</a>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    } @else if (fa.diasHastaProximoPago() <= 3) {
+      <mat-card class="card-prepare">
+        <mat-card-content>
+          <div class="row">
+            <mat-icon class="prep-icon">event_upcoming</mat-icon>
+            <div style="flex:1;">
+              <strong>Tu próximo pago está cerca</strong>
+              <p class="muted small">Crea ahora el siguiente ciclo y prepara tus obligaciones recurrentes.</p>
+            </div>
+            <a mat-flat-button color="primary" routerLink="/cycles/new">Preparar</a>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <!-- SECCIÓN 6: Confiabilidad -->
+    <mat-card class="card-conf">
+      <mat-card-content>
+        <div class="row-space">
+          <div>
+            <div class="muted small">Confiabilidad de la proyección</div>
+            <strong>{{ fa.confiabilidad().mensaje }}</strong>
+          </div>
+          <div class="conf-count">{{ fa.confiabilidad().done }}/{{ fa.confiabilidad().total }}</div>
+        </div>
+        <mat-progress-bar mode="determinate" [value]="fa.confiabilidad().porcentaje * 100" class="conf-bar" />
+        <ul class="conf-list">
+          @for (item of fa.confiabilidad().items; track item.label) {
+            <li>
+              <mat-icon class="check" [class.done]="item.done">
+                {{ item.done ? 'check_circle' : 'radio_button_unchecked' }}
+              </mat-icon>
+              <span>{{ item.label }}</span>
+              @if (item.cta) {
+                <a mat-button color="primary" [routerLink]="item.cta.link">{{ item.cta.label }}</a>
+              }
+            </li>
+          }
+        </ul>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Desglose por prioridad -->
+    <h3 class="section-title">Desglose de obligaciones</h3>
+    <div class="prio-grid">
+      <div class="prio-cell prio-A">
+        <div class="prio-name">A · Esencial</div>
+        <strong>{{ fa.obligacionesEsenciales() | cop }}</strong>
+      </div>
+      <div class="prio-cell prio-B">
+        <div class="prio-name">B · Financiero</div>
+        <strong>{{ fa.obligacionesFinancieras() | cop }}</strong>
+      </div>
+      <div class="prio-cell prio-C">
+        <div class="prio-name">C · Importante</div>
+        <strong>{{ fa.obligacionesImportantes() | cop }}</strong>
+      </div>
+      <div class="prio-cell prio-D">
+        <div class="prio-name">D · Flexible</div>
+        <strong>{{ fa.obligacionesFlexibles() | cop }}</strong>
+      </div>
+    </div>
+
+    <!-- Compromisos pendientes -->
+    @if (fa.compromisosPendientes().length > 0) {
+      <h3 class="section-title">Compromisos pendientes en este ciclo</h3>
+      <ul class="comp-list">
+        @for (c of fa.compromisosPendientes(); track c.id) {
+          <li class="comp-item">
+            <div class="comp-meta">
+              <div class="comp-name">{{ c.nombre }}</div>
+              <div class="muted small">
+                @if (c.vigencia === 'Vencido') {
+                  <span class="chip semaforo-rojo">VENCIDA</span>
+                } @else if (c.vigencia === 'Corriente') {
+                  <span class="chip semaforo-amarillo">Corriente</span>
+                }
+                @if (c.fechaVencimiento) { · vence {{ c.fechaVencimiento | fechaCorta }} }
+              </div>
+            </div>
+            <div class="comp-amount">{{ c.saldoPendiente | cop }}</div>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (fa.obligacionesVencidas() > 0) {
+      <mat-card class="alert-card">
+        <mat-card-content>
+          <div class="row">
+            <mat-icon class="alert-icon">warning</mat-icon>
+            <div>
+              <strong>Tienes {{ fa.obligacionesVencidas() | cop }} en obligaciones vencidas</strong>
+              <p class="muted small">Cúbrelas para no acumular intereses o reportes negativos.</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <a mat-fab extended color="accent" routerLink="/expenses/new" class="fab-bottom">
+      <mat-icon>add</mat-icon> Gasto rápido
+    </a>
+  </section>
+}

@@ -1,0 +1,34 @@
+<mat-toolbar color="primary" class="topbar">
+  <span class="brand">Finanzas</span>
+  <span class="spacer"></span>
+  <a mat-icon-button routerLink="/settings" aria-label="Configuración">
+    <mat-icon>settings</mat-icon>
+  </a>
+</mat-toolbar>
+
+<main class="content">
+  <router-outlet />
+</main>
+
+<nav class="bottom-nav" role="navigation">
+  <a class="nav-item" routerLink="/dashboard" routerLinkActive="active">
+    <mat-icon>home</mat-icon>
+    <span>Inicio</span>
+  </a>
+  <a class="nav-item" routerLink="/expenses" routerLinkActive="active">
+    <mat-icon>shopping_cart</mat-icon>
+    <span>Gastos</span>
+  </a>
+  <a class="nav-item" routerLink="/incomes" routerLinkActive="active">
+    <mat-icon>payments</mat-icon>
+    <span>Ingresos</span>
+  </a>
+  <a class="nav-item" routerLink="/obligations" routerLinkActive="active">
+    <mat-icon>receipt_long</mat-icon>
+    <span>Obligac.</span>
+  </a>
+  <a class="nav-item" routerLink="/cycles" routerLinkActive="active">
+    <mat-icon>event</mat-icon>
+    <span>Ciclos</span>
+  </a>
+</nav>
