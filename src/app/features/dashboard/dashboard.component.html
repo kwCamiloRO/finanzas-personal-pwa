@@ -185,22 +185,6 @@
             </div>
           </mat-card-content>
         </mat-card>
-      } @else if (fa.diasRestantesCiclo() <= 3) {
-        <mat-card class="card-prepare">
-          <mat-card-content>
-            <div class="row">
-              <mat-icon class="prep-icon">event_upcoming</mat-icon>
-              <div style="flex:1;">
-                <strong>Tu próximo ciclo está listo para prepararse</strong>
-                <p class="muted small">Crea el siguiente ciclo con las obligaciones recurrentes ya clonadas.</p>
-              </div>
-              <button mat-flat-button color="primary"
-                      [disabled]="preparando()" (click)="prepararSiguienteCiclo()">
-                Preparar
-              </button>
-            </div>
-          </mat-card-content>
-        </mat-card>
       }
     }
 
@@ -252,15 +236,22 @@
       </div>
     </div>
 
-    <!-- Acciones de ciclo -->
-    <div class="row" style="gap:8px; flex-wrap: wrap; margin-top: 8px;">
+    <!-- Acciones de ciclo (siempre visibles) -->
+    <div class="action-bar">
+      <button mat-stroked-button
+              [disabled]="preparando()" (click)="prepararSiguienteCiclo()">
+        <mat-icon>event_upcoming</mat-icon> Preparar siguiente
+      </button>
       <a mat-stroked-button routerLink="/checklist">
-        <mat-icon>checklist</mat-icon> Checklist obligaciones
+        <mat-icon>checklist</mat-icon> Checklist
       </a>
-      @if (!fa.viendoCicloActivo()) {
-        <a mat-stroked-button [routerLink]="['/cycles', fa.cicloViendoId(), 'comparativa']">
-          <mat-icon>compare</mat-icon> Comparativa
-        </a>
+      <a mat-stroked-button [routerLink]="['/cycles', fa.cicloViendoId(), 'comparativa']">
+        <mat-icon>compare</mat-icon> Comparativa
+      </a>
+      @if (fa.viendoCicloActivo() && fa.cicloActivo()?.estado === 'Abierto') {
+        <button mat-stroked-button color="warn" (click)="cerrarCicloActual()">
+          <mat-icon>lock</mat-icon> Cerrar ciclo
+        </button>
       }
     </div>
 

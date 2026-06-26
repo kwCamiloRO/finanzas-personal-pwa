@@ -101,4 +101,13 @@ export class DashboardComponent implements OnInit {
   pagoAunNoLlega() {
     this.snack.open('Seguiremos esperando. Marca tu salario cuando llegue.', 'OK', { duration: 4000 });
   }
+
+  /** Cierra el ciclo activo desde el dashboard. */
+  async cerrarCicloActual() {
+    const ca = this.cycles.cicloActivoId();
+    if (!ca) return;
+    if (!confirm('Cerrar este ciclo? Podras seguir viendo su historial y comparativa.')) return;
+    await this.cycles.cerrarCiclo(ca);
+    this.snack.open('Ciclo cerrado. Prepara el siguiente cuando quieras.', 'OK', { duration: 4000 });
+  }
 }

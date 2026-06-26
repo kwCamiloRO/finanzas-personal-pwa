@@ -125,3 +125,14 @@
 .paydate-head { display: flex; gap: 8px; align-items: center; font-size: 16px; }
 .paydate-icon { color: var(--verde-700); }
 .paydate-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* v0.3.x — Barra de acciones del ciclo */
+.action-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin: 16px 0 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.action-bar button, .action-bar a { flex: 1 1 calc(50% - 4px); min-width: 130px; }

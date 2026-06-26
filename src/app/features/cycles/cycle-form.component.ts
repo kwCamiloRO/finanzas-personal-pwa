@@ -28,11 +28,28 @@ import { CicloRepository } from '../../core/data/ciclo.repository';
       <mat-card>
         <mat-card-content>
           <form [formGroup]="form" (ngSubmit)="onSubmit()" class="full-form">
+
             <mat-form-field appearance="outline">
               <mat-label>Fecha de pago</mat-label>
-              <input matInput [matDatepicker]="picker" formControlName="fechaPago" required>
-              <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-              <mat-datepicker #picker></mat-datepicker>
+              <input matInput [matDatepicker]="pp" formControlName="fechaPago" required>
+              <mat-datepicker-toggle matIconSuffix [for]="pp"></mat-datepicker-toggle>
+              <mat-datepicker #pp></mat-datepicker>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Fecha de inicio (opcional)</mat-label>
+              <input matInput [matDatepicker]="pi" formControlName="fechaInicio">
+              <mat-datepicker-toggle matIconSuffix [for]="pi"></mat-datepicker-toggle>
+              <mat-datepicker #pi></mat-datepicker>
+              <mat-hint>Si la dejas vacia se infiere del ciclo anterior.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Fecha de fin (opcional)</mat-label>
+              <input matInput [matDatepicker]="pf" formControlName="fechaFin">
+              <mat-datepicker-toggle matIconSuffix [for]="pf"></mat-datepicker-toggle>
+              <mat-datepicker #pf></mat-datepicker>
+              <mat-hint>Si la dejas vacia se infiere como el dia anterior al siguiente pago.</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -68,6 +85,8 @@ export class CycleFormComponent implements OnInit {
 
   form = this.fb.group({
     fechaPago: [new Date() as Date | null, Validators.required],
+    fechaInicio: [null as Date | null],
+    fechaFin: [null as Date | null],
     notas: [''],
     setActivo: [true],
   });
@@ -80,6 +99,8 @@ export class CycleFormComponent implements OnInit {
       if (c) {
         this.form.patchValue({
           fechaPago: new Date(c.fechaPago),
+          fechaInicio: c.fechaInicio ? new Date(c.fechaInicio) : null,
+          fechaFin: c.fechaFin ? new Date(c.fechaFin) : null,
           notas: c.notas ?? '',
         });
       }
@@ -90,14 +111,21 @@ export class CycleFormComponent implements OnInit {
     if (this.form.invalid) return;
     this.saving.set(true);
     const v = this.form.value;
+    const fechaInicio = v.fechaInicio ?? undefined;
+    const fechaFin = v.fechaFin ?? undefined;
+
     if (this.editId()) {
       await this.cycles.actualizarCiclo(this.editId()!, {
         fechaPago: v.fechaPago as Date,
+        fechaInicio,
+        fechaFin,
         notas: v.notas ?? '',
       });
     } else {
       await this.cycles.crearCiclo({
         fechaPago: v.fechaPago as Date,
+        fechaInicio,
+        fechaFin,
         notas: v.notas ?? undefined,
         setActivo: !!v.setActivo,
       });

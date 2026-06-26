@@ -4,6 +4,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](htt
 
 ## [Unreleased]
 
+## [0.3.1-ui-engine] — 2026-06-20
+
+### Added — UI conectada al motor de ciclos
+- **Settings** ahora expone una sección "Calendario de pago": `DiaPagoHabitual`, `Pais` (CO / OTRO), `ReglaFinDeSemana` (adelantar / atrasar / mantener).
+- **Cycle form** acepta y muestra `fechaInicio` y `fechaFin` como campos opcionales con hints de inferencia.
+- **Cycles list** rediseñada como historial financiero: cada tarjeta muestra mes, estado, tipo (auto/manual), fechas de inicio/fin, duración, ingresos, obligaciones, dinero libre y semáforo. Card prominente "Preparar siguiente ciclo" en la parte superior — siempre visible.
+- **Dashboard** con barra de acciones permanente: Preparar siguiente / Checklist / Comparativa / Cerrar ciclo.
+- **Obligation list** con menú extendido: Finalizar (motivo), Pausar, Reactivar, Distribuir en cuotas.
+
+### Changed — Arquitectura
+- **`ProjectionService.crearSiguienteCicloAutomatico` ahora es idempotente**: si ya existe un ciclo cuyo `fechaPago > cicloRef.fechaPago`, devuelve ese sin crear duplicados. Doble click o re-llamada no rompe nada.
+- **`CyclesListComponent`** consume directamente `fc.*` (funciones puras) para calcular métricas por cada ciclo, no solo el activo. La arquitectura "todo en signals via cicloViendoId" se conserva para el dashboard; la lista usa snapshot puntual.
+
 ## [0.3.0-cycle-engine] — 2026-06-20
 
 ### Added — Motor de ciclos

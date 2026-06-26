@@ -130,6 +130,25 @@ export class ProjectionService {
     const cicloRef = ciclos.find(c => c.id === cicloRefId)
       ?? ciclos.sort((a, b) => +new Date(b.fechaPago) - +new Date(a.fechaPago))[0];
 
+    // Idempotencia: si ya existe un ciclo cuya fechaPago es posterior al de referencia,
+    // devolvemos ese sin crear uno nuevo. Evita duplicados ante doble click o re-llamada.
+    if (cicloRef) {
+      const posterior = ciclos
+        .filter(c => +new Date(c.fechaPago) > +new Date(cicloRef.fechaPago))
+        .sort((a, b) => +new Date(a.fechaPago) - +new Date(b.fechaPago))[0];
+      if (posterior) {
+        const compromisos = await this.compromisosRepo.porCiclo(posterior.id);
+        if (opts.activar) await this.configRepo.set('CicloActivo', posterior.id);
+        return {
+          ciclo: posterior,
+          compromisosCreados: compromisos.length,
+          obligacionesRecurrentes: compromisos.length,
+          fechaPagoCalculadaCruda: new Date(posterior.fechaPago),
+          fechaPagoCalculadaAjustada: new Date(posterior.fechaPago),
+        };
+      }
+    }
+
     const cfg = await this.cargarPaymentCalendarConfig();
 
     const fechaRef = cicloRef ? new Date(cicloRef.fechaPago) : new Date();
@@ -239,6 +258,7 @@ export class ProjectionService {
     }
     return { dlpAntes, dlpDespues, delta: dlpDespues - dlpAntes };
   }
+
   compararCiclo(snap: fc.DataSnap, cicloId: string) {
     return fc.compararProyectadoVsReal(snap, cicloId);
   }
