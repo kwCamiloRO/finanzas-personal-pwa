@@ -250,6 +250,23 @@ Todos cubiertos por specs nuevas.
 
 ---
 
+## 2026-06-20 — v0.3.0 Motor de ciclos
+
+**Contexto:** la app ya está desplegada y el usuario está cargando datos reales. Cualquier cambio de motor debe ser aditivo y compatible.
+
+**Decisiones tomadas:**
+
+1. **Dexie v2 100% aditiva.** Nuevos campos opcionales, nuevos índices, sembrado solo si falta. Cero borrado.
+2. **`PaymentCalendarService` autónomo y pluggable.** Festivos por país via `HolidayProvider`. Hoy CO cubierto. Añadir otro país no requiere tocar core.
+3. **Selector de ciclo via signal, no rutas.** `CycleService.cicloViendo` permite ver cualquier ciclo en el dashboard sin URL. Más simple que pasar params por toda la app.
+4. **Gasto máximo diario usa `diasRestantesCiclo`**, no `diasHastaProximoPago`. Diferencia sutil pero importante: en planificación pueden ser iguales; en ejecución el día de pago no inicia un nuevo ciclo lógico hasta que el usuario lo active.
+5. **"Día de pago" es card opcional, no override de modo.** El usuario decide cuándo entra en EJECUCIÓN haciendo clic "Sí, lo recibí". El sistema solo facilita.
+6. **`estadoRapido` no reemplaza `Pago`.** El checklist marca el estado y emite un `Pago` cuando aplica. El historial de pagos sigue siendo la fuente de verdad de saldos.
+7. **Cuotas flexibles bajan automáticamente al crear ciclo.** Si crearSiguienteCicloAutomatico se ejecuta dos veces el mismo día, se descontarían dos cuotas — riesgo aceptado por simplicidad. TODO v0.4: idempotencia por ciclo+obligación.
+8. **No mover el ciclo activo automáticamente al día de pago.** La transición sigue siendo manual (botón "Sí, recibí"). Esto preserva la libertad del usuario y evita bugs si el pago se retrasa.
+
+---
+
 ## Decisiones pendientes (TODO)
 
 - [ ] Versión exacta de Angular en `package.json` (latest LTS al momento del MVP).

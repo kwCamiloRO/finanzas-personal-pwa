@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { db } from '../data/finanzas.db';
 
 const SEED_DEFAULTS: { parametro: string; valor: string; descripcion: string }[] = [
@@ -13,6 +13,9 @@ const SEED_DEFAULTS: { parametro: string; valor: string; descripcion: string }[]
   { parametro: 'FrecuenciaPago',       valor: 'QUINCENAL', descripcion: 'QUINCENAL | MENSUAL | VARIABLE.' },
   { parametro: 'OnboardingCompletado', valor: 'true',    descripcion: 'Marcador del onboarding (MVP: skip).' },
   { parametro: 'Modo',                 valor: 'COMPLETO', descripcion: 'SIMPLE | COMPLETO.' },
+  { parametro: 'DiaPagoHabitual',      valor: '28',      descripcion: 'Dia del mes en que normalmente recibes el pago.' },
+  { parametro: 'ReglaFinDeSemana',     valor: 'adelantar', descripcion: 'Si la fecha cae sab/dom/festivo: adelantar | atrasar | mantener.' },
+  { parametro: 'Pais',                 valor: 'CO',      descripcion: 'Codigo de pais (CO, MX, AR, ...) para calendario de festivos.' },
 ];
 
 @Injectable({ providedIn: 'root' })

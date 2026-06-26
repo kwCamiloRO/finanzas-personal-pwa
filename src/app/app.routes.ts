@@ -37,5 +37,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/settings/settings.component').then(m => m.SettingsComponent),
   },
+  {
+    path: 'checklist',
+    loadComponent: () =>
+      import('./features/checklist/checklist.component').then(m => m.ChecklistComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];

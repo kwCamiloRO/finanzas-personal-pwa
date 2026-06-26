@@ -197,7 +197,8 @@ export class ObligationFormComponent implements OnInit {
     if (this.editId()) {
       await this.obs.actualizar(this.editId()!, payload);
     } else {
-      await this.obs.crear(payload);
+      // Coherente con la migración v2: nuevas obligaciones nacen con estadoFinalizacion='Activa'.
+      await this.obs.crear({ ...payload, estadoFinalizacion: 'Activa' });
     }
 
     if (this.onboarding() && !this.editId() && this.continuar) {

@@ -10,7 +10,7 @@ import { CycleService } from './cycle.service';
 import { ClockService } from '../infra/clock.service';
 import {
   Ingreso, Gasto, Compromiso, Pago, Obligacion, ConfigRow,
-  EstadoFinanciero, Vigencia, Prioridad, ModoCiclo,
+  EstadoFinanciero, ModoCiclo,
 } from '../domain';
 import * as fc from './financial-calculations';
 
@@ -57,8 +57,8 @@ export class FinancialAnalysisService {
     return this.configRows().find(r => r.parametro === key)?.valor ?? fallback;
   }
 
-  // Snapshots derivados (recomputed automáticamente cuando cualquier signal cambia)
-  private data = computed<fc.DataSnap>(() => ({
+  /** Snapshot público — útil para consumir las funciones puras desde componentes/servicios. */
+  readonly data = computed<fc.DataSnap>(() => ({
     ciclos: this.cycleService.ciclos(),
     ingresos: this.ingresos(),
     gastos: this.gastos(),
@@ -67,7 +67,7 @@ export class FinancialAnalysisService {
     obligaciones: this.obligaciones(),
   }));
 
-  private config = computed<fc.ConfigSnap>(() => ({
+  readonly config = computed<fc.ConfigSnap>(() => ({
     cicloActivoId: this.cycleService.cicloActivoId() ?? '',
     fondoOperativo: this.getConfig('FondoOperativo'),
     umbralVerde: this.getConfig('UmbralVerde', 1_500_000),
@@ -83,25 +83,33 @@ export class FinancialAnalysisService {
   readonly hayCicloActivo = computed(() => !!this.cicloActivoId());
   readonly siguienteCiclo = computed(() => fc.siguienteCiclo(this.data(), this.config()));
 
+  // ===== v0.3.0 — ciclo visualizado en dashboard (activo por defecto) =====
+  readonly cicloViendo = computed(() => this.cycleService.cicloViendo() ?? this.cicloActivo());
+  readonly cicloViendoId = computed(() => this.cicloViendo()?.id ?? '');
+  readonly viendoCicloActivo = computed(() => this.cicloViendoId() === this.cicloActivoId());
+  readonly ciclosHistoricos = computed(() => this.cycleService.ciclosHistoricos());
+
   readonly fondoOperativo = computed(() => this.config().fondoOperativo);
   readonly umbralVerde = computed(() => this.config().umbralVerde);
   readonly umbralAmarillo = computed(() => this.config().umbralAmarillo);
 
-  // ===== Modo y banderas =====
-  readonly modo = computed<ModoCiclo>(() => fc.modo(this.data(), this.cicloActivoId()));
+  // ===== Modo y banderas (siempre relativas al ciclo visualizado) =====
+  readonly modo = computed<ModoCiclo>(() => fc.modo(this.data(), this.cicloViendoId()));
   readonly fechaPagoAlcanzada = computed(() =>
-    fc.fechaPagoAlcanzada(this.data(), this.config(), this.hoy()));
+    fc.fechaPagoAlcanzada(this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
   readonly pagoEsperadoPendiente = computed(() =>
-    fc.pagoEsperadoPendiente(this.data(), this.config(), this.hoy()));
+    fc.pagoEsperadoPendiente(this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
+  readonly esDiaDePago = computed(() =>
+    fc.esDiaDePago(this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
 
-  // ===== Ingresos =====
-  readonly ingresosRecibidos = computed(() => fc.ingresosRecibidos(this.data(), this.cicloActivoId()));
-  readonly ingresosEsperados = computed(() => fc.ingresosEsperados(this.data(), this.cicloActivoId()));
-  readonly ingresosTotalesCiclo = computed(() => fc.ingresosTotalesCiclo(this.data(), this.cicloActivoId()));
+  // ===== Ingresos del ciclo visualizado =====
+  readonly ingresosRecibidos = computed(() => fc.ingresosRecibidos(this.data(), this.cicloViendoId()));
+  readonly ingresosEsperados = computed(() => fc.ingresosEsperados(this.data(), this.cicloViendoId()));
+  readonly ingresosTotalesCiclo = computed(() => fc.ingresosTotalesCiclo(this.data(), this.cicloViendoId()));
 
-  // ===== Compromisos =====
+  // ===== Compromisos del ciclo visualizado =====
   readonly compromisosCicloActivo = computed(() =>
-    fc.compromisosDelCiclo(this.data(), this.cicloActivoId()).map(c => ({
+    fc.compromisosDelCiclo(this.data(), this.cicloViendoId()).map(c => ({
       ...c,
       vigencia: fc.vigencia(this.data(), c, this.hoy()),
     }))
@@ -112,15 +120,15 @@ export class FinancialAnalysisService {
 
   // ===== Obligaciones =====
   readonly obligacionesProyectadas = computed(() =>
-    fc.obligacionesProyectadas(this.data(), this.cicloActivoId()));
+    fc.obligacionesProyectadas(this.data(), this.cicloViendoId()));
   readonly obligacionesEsenciales = computed(() =>
-    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloActivoId(), 'A'));
+    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloViendoId(), 'A'));
   readonly obligacionesFinancieras = computed(() =>
-    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloActivoId(), 'B'));
+    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloViendoId(), 'B'));
   readonly obligacionesImportantes = computed(() =>
-    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloActivoId(), 'C'));
+    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloViendoId(), 'C'));
   readonly obligacionesFlexibles = computed(() =>
-    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloActivoId(), 'D'));
+    fc.obligacionesProyectadasPorPrioridad(this.data(), this.cicloViendoId(), 'D'));
 
   readonly obligacionesVencidas = computed(() =>
     this.compromisosCicloActivo()
@@ -134,22 +142,22 @@ export class FinancialAnalysisService {
   );
 
   // ===== Gastos y pagos =====
-  readonly gastosCiclo = computed(() => fc.gastosCiclo(this.data(), this.cicloActivoId()));
-  readonly pagosCicloRealizados = computed(() => fc.pagosCicloRealizados(this.data(), this.cicloActivoId()));
+  readonly gastosCiclo = computed(() => fc.gastosCiclo(this.data(), this.cicloViendoId()));
+  readonly pagosCicloRealizados = computed(() => fc.pagosCicloRealizados(this.data(), this.cicloViendoId()));
 
   // ===== Métricas principales =====
   readonly dineroLibreProyectado = computed(() =>
-    fc.dineroLibreProyectado(this.data(), this.cicloActivoId()));
+    fc.dineroLibreProyectado(this.data(), this.cicloViendoId()));
   readonly dineroDisponibleReal = computed(() =>
-    fc.dineroDisponibleReal(this.data(), this.cicloActivoId()));
+    fc.dineroDisponibleReal(this.data(), this.cicloViendoId()));
   readonly dineroLibreReal = computed(() =>
-    fc.dineroLibreRealLegacy(this.data(), this.config()));
+    fc.dineroLibreRealLegacy(this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }));
 
   // ===== Salud =====
   readonly porcentajeLibreRestante = computed(() =>
-    fc.porcentajeLibreRestante(this.data(), this.cicloActivoId()));
+    fc.porcentajeLibreRestante(this.data(), this.cicloViendoId()));
   readonly saludCiclo = computed<EstadoFinanciero>(() =>
-    fc.saludCiclo(this.data(), this.cicloActivoId()));
+    fc.saludCiclo(this.data(), this.cicloViendoId()));
   readonly estadoFinanciero = computed<EstadoFinanciero>(() => {
     const dlr = this.dineroLibreReal();
     if (dlr >= this.umbralVerde()) return 'VERDE';
@@ -157,28 +165,45 @@ export class FinancialAnalysisService {
     return 'ROJO';
   });
 
-  // ===== Fechas y días =====
-  readonly fechaProximoPago = computed(() => fc.fechaProximoPago(this.data(), this.config(), this.hoy()));
-  readonly diasHastaProximoPago = computed(() => fc.diasHastaProximoPago(this.data(), this.config(), this.hoy()));
-  readonly diasTranscurridos = computed(() => fc.diasTranscurridos(this.data(), this.config(), this.hoy()));
-  readonly velocidadGasto = computed(() => fc.velocidadGasto(this.data(), this.config(), this.hoy()));
-  readonly gastoMaximoDiario = computed(() => fc.gastoMaximoDiario(this.data(), this.config(), this.hoy()));
+  // ===== Fechas y días — v0.3.0 (siempre desde el ciclo visualizado) =====
+  readonly fechaProximoPago = computed(() => fc.fechaProximoPago(
+    this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
+  readonly diasHastaProximoPago = computed(() => fc.diasHastaProximoPago(
+    this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
+  readonly diasTranscurridos = computed(() => fc.diasTranscurridos(
+    this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
+  readonly fechaInicioCiclo = computed(() => {
+    const c = this.cicloViendo();
+    return c ? fc.fechaInicioCiclo(this.data(), c) : null;
+  });
+  readonly fechaFinCiclo = computed(() => {
+    const c = this.cicloViendo();
+    return c ? fc.fechaFinCiclo(this.data(), c, fc.duracionEstimada(this.config())) : null;
+  });
+  readonly diasRestantesCiclo = computed(() => {
+    const c = this.cicloViendo();
+    return c ? fc.diasRestantesCiclo(this.data(), c, this.hoy(), fc.duracionEstimada(this.config())) : 0;
+  });
+  readonly duracionCicloDias = computed(() => {
+    const c = this.cicloViendo();
+    return c ? fc.duracionCiclo(this.data(), c, fc.duracionEstimada(this.config())) : 0;
+  });
+
+  // ===== Velocidad y gasto máximo diario (v0.3.0 corregido) =====
+  readonly velocidadGasto = computed(() => fc.velocidadGasto(
+    this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
+  /** Gasto máximo diario corregido: usa diasRestantesCiclo (fin - hoy), no días hasta próximo pago. */
+  readonly gastoMaximoDiario = computed(() => fc.gastoMaximoDiarioV2(
+    this.data(), { ...this.config(), cicloActivoId: this.cicloViendoId() }, this.hoy()));
 
   // ===== Confiabilidad =====
   readonly confiabilidad = computed<Confiabilidad>(() => {
     const base = fc.confiabilidad(this.data(), this.config());
-    const ca = this.cicloActivoId();
     const items: ConfiabilidadItem[] = base.items.map((it, idx) => {
       if (it.done) return it;
-      const links = [
-        { link: '/cycles/new' },
-        { link: '/incomes/new' },
-        { link: '/obligations/new' },
-        { link: '/obligations/new' },
-        { link: '/obligations/new' },
-      ];
-      const label = ['Crear ciclo', 'Agregar ingreso', 'Agregar esenciales', 'Agregar financieras', 'Agregar importantes'][idx];
-      return { ...it, cta: { label, link: links[idx]!.link } };
+      const links = ['/cycles/new', '/incomes/new', '/obligations/new', '/obligations/new', '/obligations/new'];
+      const labels = ['Crear ciclo', 'Agregar ingreso', 'Agregar esenciales', 'Agregar financieras', 'Agregar importantes'];
+      return { ...it, cta: { label: labels[idx]!, link: links[idx]! } };
     });
     const mensaje =
       base.mensaje === 'NO_CONFIABLE' ? 'Tu proyección aún no es confiable'

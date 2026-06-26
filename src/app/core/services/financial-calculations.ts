@@ -397,3 +397,127 @@ export function compararProyectadoVsReal(d: DataSnap, cicloId: string): Comparat
     diferencia: dlpReal - dlpProyectado,
   };
 }
+
+// ============================================================================
+// v0.3.0 - Motor de ciclos: fechas inferidas, gasto diario por dias restantes
+// ============================================================================
+
+/** Fecha de inicio efectiva del ciclo (inferida si no esta persistida). */
+export function fechaInicioCiclo(d: DataSnap, ciclo: Ciclo): Date {
+  if (ciclo.fechaInicio) return new Date(ciclo.fechaInicio);
+  // Inferir del ciclo anterior por fechaPago
+  const ordenados = [...d.ciclos].sort((a, b) => +new Date(a.fechaPago) - +new Date(b.fechaPago));
+  const idx = ordenados.findIndex(c => c.id === ciclo.id);
+  if (idx > 0) return new Date(ordenados[idx - 1].fechaPago);
+  return new Date(ciclo.fechaPago);
+}
+
+/** Fecha de fin efectiva del ciclo: un dia antes del siguiente pago (o estimada). */
+export function fechaFinCiclo(d: DataSnap, ciclo: Ciclo, duracionDefault = 15): Date {
+  if (ciclo.fechaFin) return new Date(ciclo.fechaFin);
+  const ordenados = [...d.ciclos].sort((a, b) => +new Date(a.fechaPago) - +new Date(b.fechaPago));
+  const idx = ordenados.findIndex(c => c.id === ciclo.id);
+  const next = idx >= 0 && idx < ordenados.length - 1 ? ordenados[idx + 1] : null;
+  if (next) {
+    const f = new Date(next.fechaPago);
+    f.setDate(f.getDate() - 1);
+    return f;
+  }
+  const f = new Date(ciclo.fechaPago);
+  f.setDate(f.getDate() + duracionDefault - 1);
+  return f;
+}
+
+/** Dias restantes del ciclo (hoy -> fechaFin). Minimo 0. */
+export function diasRestantesCiclo(d: DataSnap, ciclo: Ciclo, hoy: Date, duracionDefault = 15): number {
+  const fin = fechaFinCiclo(d, ciclo, duracionDefault);
+  return Math.max(0, diffDays(fin, hoy));
+}
+
+/** Duracion real del ciclo (fechaFin - fechaInicio + 1). */
+export function duracionCiclo(d: DataSnap, ciclo: Ciclo, duracionDefault = 15): number {
+  const ini = fechaInicioCiclo(d, ciclo);
+  const fin = fechaFinCiclo(d, ciclo, duracionDefault);
+  return Math.max(1, diffDays(fin, ini) + 1);
+}
+
+/**
+ * Gasto maximo diario corregido (v0.3.0):
+ *   base = en modo EJECUCION usar dineroDisponibleReal, en PLANIFICACION usar dineroLibreProyectado.
+ *   dias = diasRestantesCiclo (fechaFin del ciclo - hoy), no dias hasta proximo pago.
+ *   Si hoy > fechaFin, devuelve base (no hay dias restantes).
+ */
+export function gastoMaximoDiarioV2(d: DataSnap, c: ConfigSnap, hoy: Date): number {
+  const activo = cicloActivo(d, c);
+  if (!activo) return 0;
+  const base = modo(d, c.cicloActivoId) === 'EJECUCION'
+    ? dineroDisponibleReal(d, c.cicloActivoId)
+    : dineroLibreProyectado(d, c.cicloActivoId);
+  const dias = diasRestantesCiclo(d, activo, hoy, duracionEstimada(c));
+  if (dias <= 0) return Math.max(0, base);
+  return Math.max(0, base / dias);
+}
+
+/** Hoy es dia de pago del ciclo activo? */
+export function esDiaDePago(d: DataSnap, c: ConfigSnap, hoy: Date): boolean {
+  const activo = cicloActivo(d, c);
+  if (!activo) return false;
+  return startOfDay(new Date(activo.fechaPago)).getTime() === startOfDay(hoy).getTime();
+}
+
+/** Ciclos historicos (cerrados u ordenados por fecha descendente, sin contar el activo). */
+export function ciclosHistoricos(d: DataSnap, c: ConfigSnap): Ciclo[] {
+  return [...d.ciclos]
+    .filter(x => x.id !== c.cicloActivoId)
+    .sort((a, b) => +new Date(b.fechaPago) - +new Date(a.fechaPago));
+}
+
+/** Comparativa enriquecida (v0.3.0): incluye porcentaje de precision y desglose. */
+export interface ComparativoExtendido {
+  cicloId: string;
+  ingresoProyectado: number;
+  ingresoReal: number;
+  diffIngreso: number;
+  obligacionProyectada: number;
+  obligacionReal: number;
+  diffObligacion: number;
+  gastoReal: number;
+  dlpProyectado: number;
+  dlpReal: number;
+  diferencia: number;
+  porcentajePrecision: number;       // 0..1; 1 = clavado, baja conforme |diferencia| crece
+  causaPrincipal: 'ingreso' | 'obligacion' | 'gasto' | 'ninguna';
+}
+
+export function comparativoExtendido(d: DataSnap, cicloId: string): ComparativoExtendido {
+  const cmp = compararProyectadoVsReal(d, cicloId);
+  const diffIngreso = cmp.ingresoReal - cmp.ingresoProyectado;
+  const diffObligacion = cmp.obligacionReal - cmp.obligacionProyectada;
+  // base de comparacion: ingresoProyectado (denominador no nulo)
+  const base = Math.max(1, cmp.ingresoProyectado);
+  const precision = Math.max(0, 1 - Math.abs(cmp.diferencia) / base);
+
+  // gastoReal aparece a ambos lados de DLP y DLR, por lo que se cancela y NUNCA es
+  // matematicamente la causa de la diferencia. La causa solo puede ser ingreso u obligacion.
+  // Si ambas diferencias son cero, no hay causa.
+  let causa: ComparativoExtendido['causaPrincipal'] = 'ninguna';
+  if (Math.abs(diffIngreso) > 0 || Math.abs(diffObligacion) > 0) {
+    causa = Math.abs(diffIngreso) >= Math.abs(diffObligacion) ? 'ingreso' : 'obligacion';
+  }
+
+  return {
+    cicloId,
+    ingresoProyectado: cmp.ingresoProyectado,
+    ingresoReal: cmp.ingresoReal,
+    diffIngreso,
+    obligacionProyectada: cmp.obligacionProyectada,
+    obligacionReal: cmp.obligacionReal,
+    diffObligacion,
+    gastoReal: cmp.gastoReal,
+    dlpProyectado: cmp.dlpProyectado,
+    dlpReal: cmp.dlpReal,
+    diferencia: cmp.diferencia,
+    porcentajePrecision: precision,
+    causaPrincipal: causa,
+  };
+}

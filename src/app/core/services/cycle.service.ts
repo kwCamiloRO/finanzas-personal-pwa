@@ -24,15 +24,63 @@ export class CycleService {
     return this.ciclos().find(c => c.id === id) ?? null;
   });
 
-  async crearCiclo(input: { fechaPago: Date; notas?: string; setActivo?: boolean }): Promise<Ciclo> {
+  // v0.3.0 — ciclo visualizado en dashboard (puede ser distinto al activo).
+  // Default: el activo. El usuario puede cambiarlo via selector sin tocar rutas.
+  private _cicloViendoIdOverride = signal<string | null>(null);
+  readonly cicloViendoId = computed(() =>
+    this._cicloViendoIdOverride() ?? this.cicloActivoId() ?? ''
+  );
+  readonly cicloViendo = computed(() =>
+    this.ciclos().find(c => c.id === this.cicloViendoId()) ?? null
+  );
+  setCicloViendo(id: string | null) { this._cicloViendoIdOverride.set(id); }
+  resetCicloViendo() { this._cicloViendoIdOverride.set(null); }
+
+  // Listado de ciclos cerrados o anteriores al activo (descendente por fechaPago)
+  readonly ciclosHistoricos = computed(() => {
+    const activoId = this.cicloActivoId();
+    return [...this.ciclos()]
+      .filter(c => c.id !== activoId)
+      .sort((a, b) => +new Date(b.fechaPago) - +new Date(a.fechaPago));
+  });
+
+  async crearCiclo(input: {
+    fechaPago: Date;
+    notas?: string;
+    setActivo?: boolean;
+    fechaInicio?: Date;
+    fechaFin?: Date;
+    creadoAutomaticamente?: boolean;
+    generadoDesdeConfiguracion?: boolean;
+  }): Promise<Ciclo> {
     const ciclo: Ciclo = {
       id: uid('C-'),
       fechaPago: input.fechaPago,
       estado: 'Abierto',
       notas: input.notas,
+      fechaInicio: input.fechaInicio,
+      fechaFin: input.fechaFin,
+      creadoAutomaticamente: input.creadoAutomaticamente,
+      generadoDesdeConfiguracion: input.generadoDesdeConfiguracion,
     };
     await db.transaction('rw', db.ciclos, db.config, async () => {
       await db.ciclos.add(ciclo);
+      // Vincular al ciclo anterior (si existe) por fechaPago anterior más cercano
+      const anteriores = await db.ciclos
+        .where('fechaPago').below(ciclo.fechaPago)
+        .reverse().sortBy('fechaPago');
+      const anterior = anteriores[0];
+      if (anterior) {
+        await db.ciclos.update(ciclo.id, { cicloAnteriorId: anterior.id });
+        await db.ciclos.update(anterior.id, { cicloSiguienteId: ciclo.id });
+        // fechaFin del anterior = fechaPago de este - 1 (si aún no tiene)
+        const anteriorActualizado = await db.ciclos.get(anterior.id);
+        if (anteriorActualizado && !anteriorActualizado.fechaFin) {
+          const ff = new Date(ciclo.fechaPago);
+          ff.setDate(ff.getDate() - 1);
+          await db.ciclos.update(anterior.id, { fechaFin: ff });
+        }
+      }
       if (input.setActivo) {
         await this.configRepo.set('CicloActivo', ciclo.id);
       }

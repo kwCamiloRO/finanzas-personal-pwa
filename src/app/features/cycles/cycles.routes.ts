@@ -13,4 +13,9 @@ export const CYCLES_ROUTES: Routes = [
     path: ':id/edit',
     loadComponent: () => import('./cycle-form.component').then(m => m.CycleFormComponent),
   },
+  {
+    path: ':id/comparativa',
+    loadComponent: () =>
+      import('../comparativa/comparativa.component').then(m => m.ComparativaComponent),
+  },
 ];

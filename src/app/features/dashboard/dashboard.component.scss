@@ -108,3 +108,20 @@
 .card-prepare { background: #FFF3E0; border-left: 4px solid var(--amar-500); }
 .prep-icon { color: var(--amar-500); flex-shrink: 0; }
 .card-prepare strong { font-size: 14px; }
+
+/* v0.3.0 — Cycle switcher */
+.cycle-switcher {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.cs-icon { color: var(--muted); font-size: 18px; height: 18px; width: 18px; }
+.cycle-switcher mat-select { flex: 1; }
+
+/* v0.3.0 — Día de pago */
+.card-paydate { background: linear-gradient(135deg, #E8F5E9, #C8E6C9); }
+.paydate-head { display: flex; gap: 8px; align-items: center; font-size: 16px; }
+.paydate-icon { color: var(--verde-700); }
+.paydate-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

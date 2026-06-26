@@ -5,7 +5,50 @@
 } @else {
   <section class="page dashboard">
 
-    @if (fa.modo() === 'PLANIFICACION' && !fa.fechaPagoAlcanzada()) {
+    <!-- Selector de ciclo (v0.3.0) -->
+    <div class="cycle-switcher">
+      <mat-icon class="cs-icon">event</mat-icon>
+      <mat-select [ngModel]="fa.cicloViendoId()" (ngModelChange)="onCambioCicloVisualizado($event)" panelClass="cycle-panel">
+        <mat-option [value]="fa.cicloActivoId()">
+          Ciclo actual · {{ fa.cicloActivo()?.fechaPago | fechaCorta }}
+        </mat-option>
+        @if (fa.siguienteCiclo(); as sig) {
+          <mat-option [value]="sig.id">
+            Próximo · {{ sig.fechaPago | fechaCorta }}
+          </mat-option>
+        }
+        @for (h of fa.ciclosHistoricos(); track h.id) {
+          @if (h.id !== fa.siguienteCiclo()?.id) {
+            <mat-option [value]="h.id">Histórico · {{ h.fechaPago | fechaCorta }}</mat-option>
+          }
+        }
+      </mat-select>
+    </div>
+
+    <!-- Día de pago (v0.3.0) -->
+    @if (fa.esDiaDePago() && fa.viendoCicloActivo()) {
+      <mat-card class="card-paydate">
+        <mat-card-content>
+          <div class="paydate-head">
+            <mat-icon class="paydate-icon">celebration</mat-icon>
+            <strong>Hoy es día de pago</strong>
+          </div>
+          <p class="muted">¿Recibiste tu salario?</p>
+          <div class="paydate-actions">
+            <button mat-flat-button color="primary"
+                    [disabled]="confirmandoPago()"
+                    (click)="confirmarRecepcionPago()">
+              <mat-icon>check_circle</mat-icon> Sí, lo recibí
+            </button>
+            <button mat-stroked-button (click)="pagoAunNoLlega()">
+              <mat-icon>schedule</mat-icon> Aún no
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    @if (fa.modo() === 'PLANIFICACION' && !fa.fechaPagoAlcanzada() && !fa.esDiaDePago()) {
       <div class="banner banner-info">
         <mat-icon>insights</mat-icon>
         <div>
@@ -15,12 +58,12 @@
       </div>
     }
 
-    @if (fa.pagoEsperadoPendiente()) {
+    @if (fa.pagoEsperadoPendiente() && !fa.esDiaDePago()) {
       <div class="banner banner-warn">
         <mat-icon>schedule</mat-icon>
         <div>
           <strong>Tu pago ya debía llegar</strong>
-          <p>Tu ingreso esperado aún no está marcado como "Recibido". Confírmalo o ajusta el estado.</p>
+          <p>Confírmalo arriba (icono celebración) o ajusta el estado del ingreso.</p>
           <a mat-flat-button color="primary" routerLink="/incomes">Revisar ingresos</a>
         </div>
       </div>
@@ -35,18 +78,28 @@
         </div>
         <div class="hoy-grid">
           <div>
-            <div class="muted small">Próximo pago</div>
+            <div class="muted small">{{ fa.viendoCicloActivo() ? 'Próximo pago' : 'Fecha pago' }}</div>
             <strong class="num">{{ fa.fechaProximoPago() | fechaCorta }}</strong>
           </div>
           <div>
-            <div class="muted small">Faltan</div>
-            <strong class="num">{{ fa.diasHastaProximoPago() }} días</strong>
+            <div class="muted small">Días restantes ciclo</div>
+            <strong class="num">{{ fa.diasRestantesCiclo() }} días</strong>
+          </div>
+        </div>
+        <div class="hoy-grid">
+          <div>
+            <div class="muted small">Inicio ciclo</div>
+            <strong class="num small">{{ fa.fechaInicioCiclo() | fechaCorta }}</strong>
+          </div>
+          <div>
+            <div class="muted small">Fin ciclo</div>
+            <strong class="num small">{{ fa.fechaFinCiclo() | fechaCorta }}</strong>
           </div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- SECCIÓN 2: DINERO LIBRE PROYECTADO (hero) -->
+    <!-- SECCIÓN 2: DINERO LIBRE PROYECTADO -->
     <div class="hero-card variant-{{ saludVariant() }}">
       <div class="hero-label">
         <mat-icon>insights</mat-icon>
@@ -59,7 +112,7 @@
 
       <div class="hero-breakdown">
         <div>
-          <div class="muted small">Ingresos proyectados</div>
+          <div class="muted small">Ingresos</div>
           <div>{{ fa.ingresosTotalesCiclo() | cop }}</div>
         </div>
         <div>
@@ -73,7 +126,7 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 4 + 5: Salud + Gasto máximo diario -->
+    <!-- SECCIÓN: Salud + Gasto máximo diario -->
     <div class="grid-2">
       <div class="metric salud-{{ saludVariant() }}">
         <div class="muted small">Salud del ciclo</div>
@@ -85,12 +138,12 @@
         <div class="muted small" style="color: rgba(255,255,255,0.85);">Puedes gastar al día</div>
         <div class="metric-big">{{ fa.gastoMaximoDiario() | cop }}</div>
         <div class="small" style="color: rgba(255,255,255,0.75);">
-          {{ fa.diasHastaProximoPago() }} días restantes
+          {{ fa.diasRestantesCiclo() }} días del ciclo restan
         </div>
       </div>
     </div>
 
-    <!-- SECCIÓN 3: DINERO DISPONIBLE REAL (solo modo EJECUCIÓN) -->
+    <!-- SECCIÓN: DINERO DISPONIBLE REAL -->
     @if (fa.modo() === 'EJECUCION') {
       <div class="hero-card variant-secondary">
         <div class="hero-label">
@@ -118,35 +171,40 @@
       </div>
     }
 
-    <!-- Siguiente ciclo / CTA cerca del fin -->
-    @if (fa.siguienteCiclo()) {
-      <mat-card class="card-next">
-        <mat-card-content>
-          <div class="row-space">
-            <div>
-              <div class="muted small">Próximo ciclo registrado</div>
-              <strong>{{ fa.siguienteCiclo()!.fechaPago | fechaCorta }}</strong>
+    <!-- Siguiente ciclo / CTA preparar -->
+    @if (fa.viendoCicloActivo()) {
+      @if (fa.siguienteCiclo()) {
+        <mat-card class="card-next">
+          <mat-card-content>
+            <div class="row-space">
+              <div>
+                <div class="muted small">Próximo ciclo registrado</div>
+                <strong>{{ fa.siguienteCiclo()!.fechaPago | fechaCorta }}</strong>
+              </div>
+              <a mat-stroked-button (click)="onCambioCicloVisualizado(fa.siguienteCiclo()!.id)">Ver</a>
             </div>
-            <a mat-stroked-button [routerLink]="['/cycles', fa.siguienteCiclo()!.id, 'edit']">Ver</a>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    } @else if (fa.diasHastaProximoPago() <= 3) {
-      <mat-card class="card-prepare">
-        <mat-card-content>
-          <div class="row">
-            <mat-icon class="prep-icon">event_upcoming</mat-icon>
-            <div style="flex:1;">
-              <strong>Tu próximo pago está cerca</strong>
-              <p class="muted small">Crea ahora el siguiente ciclo y prepara tus obligaciones recurrentes.</p>
+          </mat-card-content>
+        </mat-card>
+      } @else if (fa.diasRestantesCiclo() <= 3) {
+        <mat-card class="card-prepare">
+          <mat-card-content>
+            <div class="row">
+              <mat-icon class="prep-icon">event_upcoming</mat-icon>
+              <div style="flex:1;">
+                <strong>Tu próximo ciclo está listo para prepararse</strong>
+                <p class="muted small">Crea el siguiente ciclo con las obligaciones recurrentes ya clonadas.</p>
+              </div>
+              <button mat-flat-button color="primary"
+                      [disabled]="preparando()" (click)="prepararSiguienteCiclo()">
+                Preparar
+              </button>
             </div>
-            <a mat-flat-button color="primary" routerLink="/cycles/new">Preparar</a>
-          </div>
-        </mat-card-content>
-      </mat-card>
+          </mat-card-content>
+        </mat-card>
+      }
     }
 
-    <!-- SECCIÓN 6: Confiabilidad -->
+    <!-- Confiabilidad -->
     <mat-card class="card-conf">
       <mat-card-content>
         <div class="row-space">
@@ -194,9 +252,21 @@
       </div>
     </div>
 
+    <!-- Acciones de ciclo -->
+    <div class="row" style="gap:8px; flex-wrap: wrap; margin-top: 8px;">
+      <a mat-stroked-button routerLink="/checklist">
+        <mat-icon>checklist</mat-icon> Checklist obligaciones
+      </a>
+      @if (!fa.viendoCicloActivo()) {
+        <a mat-stroked-button [routerLink]="['/cycles', fa.cicloViendoId(), 'comparativa']">
+          <mat-icon>compare</mat-icon> Comparativa
+        </a>
+      }
+    </div>
+
     <!-- Compromisos pendientes -->
     @if (fa.compromisosPendientes().length > 0) {
-      <h3 class="section-title">Compromisos pendientes en este ciclo</h3>
+      <h3 class="section-title">Compromisos pendientes</h3>
       <ul class="comp-list">
         @for (c of fa.compromisosPendientes(); track c.id) {
           <li class="comp-item">
@@ -224,7 +294,7 @@
             <mat-icon class="alert-icon">warning</mat-icon>
             <div>
               <strong>Tienes {{ fa.obligacionesVencidas() | cop }} en obligaciones vencidas</strong>
-              <p class="muted small">Cúbrelas para no acumular intereses o reportes negativos.</p>
+              <p class="muted small">Cúbrelas para no acumular intereses.</p>
             </div>
           </div>
         </mat-card-content>

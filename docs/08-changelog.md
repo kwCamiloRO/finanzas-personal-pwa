@@ -4,6 +4,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](htt
 
 ## [Unreleased]
 
+## [0.3.0-cycle-engine] — 2026-06-20
+
+### Added — Motor de ciclos
+- **Dexie v2** (aditiva): `Ciclo` gana `fechaInicio`, `fechaFin`, `cicloAnteriorId`, `cicloSiguienteId`, `creadoAutomaticamente`, `generadoDesdeConfiguracion`. `Obligacion` gana `fechaFin`, `motivoFinalizacion`, `estadoFinalizacion`, `cuotasTotales`, `cuotasRestantes`. `Compromiso` gana `estadoRapido`. Migración con backfill conservador y siembra de `DiaPagoHabitual`, `ReglaFinDeSemana`, `Pais`.
+- **`PaymentCalendarService`** nuevo: festivos Colombia 2024–2030 + reglas `adelantar | atrasar | mantener` cuando una fecha cae fin de semana o festivo. Pluggable por país (`HolidayProvider`).
+- **`ProjectionService.crearSiguienteCicloAutomatico`** que clona obligaciones recurrentes activas, procesa cuotas flexibles, vincula ciclos y respeta `estadoFinalizacion`.
+- **`ObligationLifecycleService`** nuevo: `finalizar`, `pausar`, `reactivar`, `distribuirEnCuotas`, `marcarRapido` (checklist) y `confirmarRecurrentesDelCiclo`.
+- **Selector de ciclo** en el dashboard (`CycleService.cicloViendo`): cambia entre ciclo actual / próximo / históricos sin cambiar de ruta.
+- **Card "Hoy es día de pago"** con botones "Sí, lo recibí" (marca todos los Esperado→Recibido) y "Aún no" (sigue planificando).
+- **Card "Preparar siguiente ciclo"** conectada a `crearSiguienteCicloAutomatico` cuando faltan ≤ 3 días.
+- **Vista checklist** (`/checklist`): cambia `Pendiente/Pagada/Parcial/Omitida` con un clic; "Pagada" registra automáticamente un pago por el saldo restante.
+- **Vista comparativa** (`/cycles/:id/comparativa`): proyectado vs real con porcentaje de precisión y causa principal.
+
+### Changed — Fórmulas
+- **`gastoMaximoDiario` (FC-21 v2)**: ahora usa `diasRestantesCiclo = fechaFin − hoy` en vez de `diasHastaProximoPago`. Más consistente en planificación y ejecución.
+- **`FinancialAnalysisService`**: todas las métricas viajan vía `cicloViendoId` (con fallback a `cicloActivoId`). El dashboard puede mostrar cualquier ciclo del historial reusando todas las computeds.
+- **`compararCicloExtendido`**: incluye precisión y causa principal.
+
+### Business Rules tocadas
+- **BR-Ciclo (nueva)**: ciclo es un rango (`fechaInicio`, `fechaPago`, `fechaFin`) con vínculos `anterior/siguiente`. Fechas inferidas si no existen.
+- **BR-Calendario (nueva)**: día de pago se ajusta según regla configurable + festivos del país.
+- **BR-Recurrentes**: solo se clonan en `crearSiguienteCicloAutomatico` si `estadoFinalizacion === 'Activa'` (o ausente).
+- **BR-Cuotas**: obligaciones con `cuotasRestantes > 0` se generan una vez por ciclo automáticamente hasta agotarse, y se finalizan solas al llegar a 0.
+- **BR-Checklist**: `estadoRapido` no reemplaza `Pago`. `Pagada` rápido emite un `Pago` por el saldo; `Omitida` no.
+
+### Migration notes
+- Dexie v1 → v2 ejecuta `.upgrade()` automáticamente la primera vez que el usuario abre la app nueva. Datos existentes intactos.
+
 ## [0.2.1-qa] — 2026-06-20
 
 ### Added (QA + correcciones de reglas)
